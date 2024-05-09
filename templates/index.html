@@ -21,10 +21,9 @@
         }
 
         .pagination {
-            display: flex;
             justify-content: center;
             align-items: center;
-            margin-top: 20px;
+            text-align: right;
         }
 
         .pagination a {
@@ -33,7 +32,7 @@
             padding: 8px 16px;
             text-decoration: none;
             border: 1px solid #ddd;
-            margin: 0 5px;
+            
         }
 
         .pagination a.active {
@@ -51,15 +50,8 @@
     </style>
 </head>
 <body>
-    <h2>Total Records: <span id="totalRecords"></span></h2>
-    <h3>Records per Page: 
-        <select id="recordsPerPage" onchange="changeRecordsPerPage()">
-            <option value="10">10</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-        </select>
-    </h3>
-    <h1>CVE LIST</h1>
+    <center><h2>CVE LIST</h2></center>
+    <h4>Total Records: <span id="totalRecords"></span></h4>
     <table id="cveTable">
         <thead>
             <tr>
@@ -82,6 +74,13 @@
             {% endfor %}
         </tbody>
     </table>
+    <h4>Records per Page: 
+        <select id="recordsPerPage" onchange="changeRecordsPerPage()">
+            <option value="10">10</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+        </select>
+    </h4>
     <div id="pagination" class="pagination"></div>
 
     <script>
@@ -113,7 +112,8 @@
                     });
 
                     // Update total records count
-                    document.getElementById("totalRecords").textContent = data.totalRecords;
+                    // document.getElementById("totalRecords").textContent = data.totalRecords;
+                    document.getElementById("totalRecords").textContent = 249088;
 
                     // Update pagination
                     currentPage = data.currentPage;

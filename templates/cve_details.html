@@ -36,7 +36,6 @@
             background-color    : #f2f2f2;
         }
         .severity {
-            font-weight    : bold;
             padding    : 4px 8px;
             border-radius    : 4px;
             color    : #000000;
@@ -52,19 +51,36 @@
 <body>
     <div class="container">
         <h1>{{ cve.cve_id }}</h1>
-        <p><strong>Source Identifier    :</strong> {{ cve.source_identifier }}</p>
-        <p><strong>Published    :</strong> {{ cve.published }}</p>
-        <p><strong>Last Modified    :</strong> {{ cve.last_modified }}</p>
-        <p><strong>Vulnerability Status    :</strong> {{ cve.vuln_status }}</p>
-        <p><strong>Description    :</strong> {{ cve.description }}</p>
-        <p><strong>Vector String    :</strong> {{ cve.cvss_vector }}</p>
-        <p><strong>Scores    :</strong></p>
+        <strong>Description:</strong> 
+        <p>{{ cve.description }}</p>
+        <h3>CVSSV2 Metrics:</h3> 
+        <p><strong>Severity    :</strong> <span class="severity severity-{{ severity_color }}">{{ cve.base_severity }}</span><strong>Score    :</strong> <span class="score" style="color    : {{ score_color }}">{{ cve.base_score }}</span></p>
+        <p><strong>Vector String : </strong>{{ cve.cvss_vector }}</p>
+        <h3>Scores:</h3>
         <p><strong>Exploitability Score    :    </strong><span class="score-{{ exploitability_score_color }}">{{ cve.exploitability_score }}</span></p>
-        <p><strong>Score    :</strong> <span class="score" style="color    : {{ score_color }}">{{ cve.base_score }}</span></p>
-        
-        <p><strong>Severity    :</strong> <span class="severity severity-{{ severity_color }}">{{ cve.base_severity }}</span></p>
         <p><strong>Impact Score    :</strong> <span>{{ cve.impact_score }}</span></p>
-
+        <table>
+            <thead>
+                <tr>
+                    <th>Access Vector</th>
+                    <th>Access Complexity</th>
+                    <th>Authentication</th>
+                    <th>Confidentiality Impact</th>
+                    <th>Integrity Impact</th>
+                    <th>Availability Impact</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ cve.access_vector }}</td>
+                    <td>{{ cve.access_complexity }}</td>
+                    <td>{{ cve.authentication }}</td>
+                    <td>{{ cve.confidentiality_impact }}</td>
+                    <td>{{ cve.integrity_impact }}</td>
+                    <td>{{ cve.availability_impact }}</td>
+                </tr>
+            </tbody>
+        </table>
 
         <h2>CPE Details</h2>
         <table>

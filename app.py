@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 import requests
+import time
+import schedule
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:admin@localhost/cve_database"
@@ -82,98 +84,121 @@ def get_cve_details(cve_id):
         
         return render_template("cve_details.html", cve=cve, cpe_records=cpe_records, score_color=score_color)
     return jsonify({"error": "CVE not found"}), 404
+
+
 @app.route("/cves/sync", methods=["GET"])
 def sync_cves():
-    response = requests.get("https://services.nvd.nist.gov/rest/json/cves/2.0", params={"startIndex": 0, "resultsPerPage": 2000})
-    cves_data = response.json()["vulnerabilities"]
-    
-    for cve_data in cves_data:
-        cve_id = cve_data["cve"]["id"]
-        source_identifier = cve_data["cve"]["sourceIdentifier"]
-        published = cve_data["cve"]["published"]
-        last_modified = cve_data["cve"]["lastModified"] 
-        vuln_status = cve_data["cve"]["vulnStatus"]
-        description = cve_data["cve"]["descriptions"][0]["value"]
-        
-        # Check if 'cvssMetricV2' key exists
-        cvss_data = cve_data["cve"]["metrics"]["cvssMetricV2"][0]["cvssData"] if "cvssMetricV2" in cve_data["cve"]["metrics"] else {}
-        cvss_version = cvss_data.get("version")
-        cvss_vector = cvss_data.get("vectorString")
-        access_vector = cvss_data.get("accessVector")
-        access_complexity = cvss_data.get("accessComplexity")
-        authentication = cvss_data.get("authentication")
-        confidentiality_impact = cvss_data.get("confidentialityImpact")
-        integrity_impact = cvss_data.get("integrityImpact")
-        availability_impact = cvss_data.get("availabilityImpact")
-        base_score = cvss_data.get("baseScore")
-        base_severity = cve_data["cve"]["metrics"]["cvssMetricV2"][0]["baseSeverity"] if "cvssMetricV2" in cve_data["cve"]["metrics"] else None
-        exploitability_score = cve_data["cve"]["metrics"]["cvssMetricV2"][0]["exploitabilityScore"] if "cvssMetricV2" in cve_data["cve"]["metrics"] else None
-        impact_score = cve_data["cve"]["metrics"]["cvssMetricV2"][0]["impactScore"] if "cvssMetricV2" in cve_data["cve"]["metrics"] else None
-        ac_insuf_info = cve_data["cve"]["metrics"]["cvssMetricV2"][0]["acInsufInfo"] if "cvssMetricV2" in cve_data["cve"]["metrics"] else None
-        obtain_all_privilege = cve_data["cve"]["metrics"]["cvssMetricV2"][0]["obtainAllPrivilege"] if "cvssMetricV2" in cve_data["cve"]["metrics"] else None
-        obtain_user_privilege = cve_data["cve"]["metrics"]["cvssMetricV2"][0]["obtainUserPrivilege"] if "cvssMetricV2" in cve_data["cve"]["metrics"] else None
-        obtain_other_privilege = cve_data["cve"]["metrics"]["cvssMetricV2"][0]["obtainOtherPrivilege"] if "cvssMetricV2" in cve_data["cve"]["metrics"] else None
-        user_interaction_required = cve_data["cve"]["metrics"]["cvssMetricV2"][0]["userInteractionRequired"] if "cvssMetricV2" in cve_data["cve"]["metrics"] else None
+    start_index = 0
+    results_per_page = 2000
+    total_results = 249088
+    # COULD ALSO BE ASSIGNED DYNAMICALLY USING - total_results=data['totalResults']
 
-        # Extract CPE details
-        cpe_records = []
-        if "configurations" in cve_data['cve']:
-            for config in cve_data['cve']['configurations']:
-                for node in config['nodes']:
-                    for cpe_match in node['cpeMatch']:
-                        cpe_criteria = cpe_match['criteria']
-                        match_criteria_id = cpe_match['matchCriteriaId']
-                        vulnerable = cpe_match['vulnerable']
-                        cpe_records.append(CPE(cve_id=cve_id, criteria=cpe_criteria, match_criteria_id=match_criteria_id, vulnerable=vulnerable))
+    for start_index in range(0,total_results,results_per_page):
+        response = requests.get("https://services.nvd.nist.gov/rest/json/cves/2.0", params={"startIndex": start_index, "resultsPerPage": results_per_page})
+        data = response.json()
 
-        # Check if CVE already exists
-        existing_cve = CVE.query.filter_by(cve_id=cve_id).first()
-        if existing_cve:
-            # Update existing CVE record
-            existing_cve.source_identifier = source_identifier
-            existing_cve.published = published
-            existing_cve.last_modified = last_modified
-            existing_cve.vuln_status = vuln_status
-            existing_cve.description = description
-            existing_cve.cvss_version = cvss_version
-            existing_cve.cvss_vector = cvss_vector
-            existing_cve.access_vector = access_vector
-            existing_cve.access_complexity = access_complexity
-            existing_cve.authentication = authentication
-            existing_cve.confidentiality_impact = confidentiality_impact
-            existing_cve.integrity_impact = integrity_impact
-            existing_cve.availability_impact = availability_impact
-            existing_cve.base_score = base_score
-            existing_cve.base_severity = base_severity
-            existing_cve.exploitability_score = exploitability_score
-            existing_cve.impact_score = impact_score
-            existing_cve.ac_insuf_info = ac_insuf_info
-            existing_cve.obtain_all_privilege = obtain_all_privilege
-            existing_cve.obtain_user_privilege = obtain_user_privilege
-            existing_cve.obtain_other_privilege = obtain_other_privilege
-            existing_cve.user_interaction_required = user_interaction_required
-        else:
-            # Create new CVE record
-            new_cve = CVE(cve_id=cve_id, source_identifier=source_identifier, published=published,
-                          last_modified=last_modified, vuln_status=vuln_status, description=description,
-                          cvss_version=cvss_version, cvss_vector=cvss_vector, access_vector=access_vector,
-                          access_complexity=access_complexity, authentication=authentication,
-                          confidentiality_impact=confidentiality_impact, integrity_impact=integrity_impact,
-                          availability_impact=availability_impact, base_score=base_score, base_severity=base_severity,
-                          exploitability_score=exploitability_score, impact_score=impact_score,
-                          ac_insuf_info=ac_insuf_info, obtain_all_privilege=obtain_all_privilege,
-                          obtain_user_privilege=obtain_user_privilege, obtain_other_privilege=obtain_other_privilege,
-                          user_interaction_required=user_interaction_required)
-            db.session.add(new_cve)
+        cves_data = data["vulnerabilities"]
+        for cve_data in cves_data:
+            cve_id = cve_data["cve"]["id"]
+            source_identifier = cve_data["cve"]["sourceIdentifier"]
+            published = cve_data["cve"]["published"]
+            last_modified = cve_data["cve"]["lastModified"]
+            vuln_status = cve_data["cve"]["vulnStatus"]
+            description = cve_data["cve"]["descriptions"][0]["value"]
+            
+            # Check if 'cvssMetricV2' key exists
+            cvss_data = cve_data["cve"]["metrics"]["cvssMetricV2"][0]["cvssData"] if "cvssMetricV2" in cve_data["cve"]["metrics"] else {}
+            cvss_version = cvss_data.get("version")
+            cvss_vector = cvss_data.get("vectorString")
+            access_vector = cvss_data.get("accessVector")
+            access_complexity = cvss_data.get("accessComplexity")
+            authentication = cvss_data.get("authentication")
+            confidentiality_impact = cvss_data.get("confidentialityImpact")
+            integrity_impact = cvss_data.get("integrityImpact")
+            availability_impact = cvss_data.get("availabilityImpact")
+            base_score = cvss_data.get("baseScore")
+            base_severity = cve_data["cve"]["metrics"]["cvssMetricV2"][0]["baseSeverity"] if "cvssMetricV2" in cve_data["cve"]["metrics"] else None
+            exploitability_score = cve_data["cve"]["metrics"]["cvssMetricV2"][0]["exploitabilityScore"] if "cvssMetricV2" in cve_data["cve"]["metrics"] else None
+            impact_score = cve_data["cve"]["metrics"]["cvssMetricV2"][0]["impactScore"] if "cvssMetricV2" in cve_data["cve"]["metrics"] else None
+            ac_insuf_info = cve_data["cve"]["metrics"]["cvssMetricV2"][0]["acInsufInfo"] if "cvssMetricV2" in cve_data["cve"]["metrics"] else None
+            obtain_all_privilege = cve_data["cve"]["metrics"]["cvssMetricV2"][0]["obtainAllPrivilege"] if "cvssMetricV2" in cve_data["cve"]["metrics"] else None
+            obtain_user_privilege = cve_data["cve"]["metrics"]["cvssMetricV2"][0]["obtainUserPrivilege"] if "cvssMetricV2" in cve_data["cve"]["metrics"] else None
+            obtain_other_privilege = cve_data["cve"]["metrics"]["cvssMetricV2"][0]["obtainOtherPrivilege"] if "cvssMetricV2" in cve_data["cve"]["metrics"] else None
+            user_interaction_required = cve_data["cve"]["metrics"]["cvssMetricV2"][0]["userInteractionRequired"] if "cvssMetricV2" in cve_data["cve"]["metrics"] else None
 
-        # Commit changes to database
-        db.session.commit()
+            # Extract CPE details
+            cpe_records = []
+            if "configurations" in cve_data['cve']:
+                for config in cve_data['cve']['configurations']:
+                    for node in config['nodes']:
+                        for cpe_match in node['cpeMatch']:
+                            cpe_criteria = cpe_match['criteria']
+                            match_criteria_id = cpe_match['matchCriteriaId']
+                            vulnerable = cpe_match['vulnerable']
+                            cpe_records.append(CPE(cve_id=cve_id, criteria=cpe_criteria, match_criteria_id=match_criteria_id, vulnerable=vulnerable))
 
-        # Add CPE records to database
-        db.session.add_all(cpe_records)
-        db.session.commit()
+            # Check if CVE already exists
+            existing_cve = CVE.query.filter_by(cve_id=cve_id).first()
+            if existing_cve:
+                # Update existing CVE record
+                existing_cve.source_identifier = source_identifier
+                existing_cve.published = published
+                existing_cve.last_modified = last_modified
+                existing_cve.vuln_status = vuln_status
+                existing_cve.description = description
+                existing_cve.cvss_version = cvss_version
+                existing_cve.cvss_vector = cvss_vector
+                existing_cve.access_vector = access_vector
+                existing_cve.access_complexity = access_complexity
+                existing_cve.authentication = authentication
+                existing_cve.confidentiality_impact = confidentiality_impact
+                existing_cve.integrity_impact = integrity_impact
+                existing_cve.availability_impact = availability_impact
+                existing_cve.base_score = base_score
+                existing_cve.base_severity = base_severity
+                existing_cve.exploitability_score = exploitability_score
+                existing_cve.impact_score = impact_score
+                existing_cve.ac_insuf_info = ac_insuf_info
+                existing_cve.obtain_all_privilege = obtain_all_privilege
+                existing_cve.obtain_user_privilege = obtain_user_privilege
+                existing_cve.obtain_other_privilege = obtain_other_privilege
+                existing_cve.user_interaction_required = user_interaction_required
+            else:
+                # Create new CVE record
+                new_cve = CVE(cve_id=cve_id, source_identifier=source_identifier, published=published,
+                            last_modified=last_modified, vuln_status=vuln_status, description=description,
+                            cvss_version=cvss_version, cvss_vector=cvss_vector, access_vector=access_vector,
+                            access_complexity=access_complexity, authentication=authentication,
+                            confidentiality_impact=confidentiality_impact, integrity_impact=integrity_impact,
+                            availability_impact=availability_impact, base_score=base_score, base_severity=base_severity,
+                            exploitability_score=exploitability_score, impact_score=impact_score,
+                            ac_insuf_info=ac_insuf_info, obtain_all_privilege=obtain_all_privilege,
+                            obtain_user_privilege=obtain_user_privilege, obtain_other_privilege=obtain_other_privilege,
+                            user_interaction_required=user_interaction_required)
+                db.session.add(new_cve)
 
-    return "CVEs synced successfully!"
+            # Commit changes to database
+            db.session.commit()
+
+            # Add CPE records to database
+            db.session.add_all(cpe_records)
+            db.session.commit()
+
+        print(f"Total CVEs synced: {total_results}")
+
+    return f"Total CVEs synced: {start_index}"
+
+schedule.every().hour.do(sync_cves)
+
+# Define a function to run the scheduler
+def run_scheduler():
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
+
 
 if __name__ == "__main__":
+    import threading
+    scheduler_thread = threading.Thread(target=run_scheduler)
+    scheduler_thread.start()
     app.run(debug=True)
