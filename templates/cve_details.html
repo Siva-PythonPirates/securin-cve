@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVE Details</title>
+    <style>
+        body {
+            font-family    : Arial, sans-serif;
+            margin    : 0;
+            padding    : 0;
+            background-color    : #f8f8f8;
+        }
+        .container {
+            max-width    : 800px;
+            margin    : 20px auto;
+            padding    : 20px;
+            background-color    : #fff;
+            border-radius    : 8px;
+            box-shadow    : 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 {
+            color    : #333;
+        }
+        table {
+            width    : 100%;
+            border-collapse    : collapse;
+            margin-top    : 20px;
+        }
+        th, td {
+            padding    : 8px;
+            text-align    : left;
+            border-bottom    : 1px solid #ddd;
+        }
+        th {
+            background-color    : #f2f2f2;
+        }
+        .severity {
+            font-weight    : bold;
+            padding    : 4px 8px;
+            border-radius    : 4px;
+            color    : #000000;
+        }
+        .score {
+            font-weight    : bold;
+            font-size    : large;
+        }
+
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ cve.cve_id }}</h1>
+        <p><strong>Source Identifier    :</strong> {{ cve.source_identifier }}</p>
+        <p><strong>Published    :</strong> {{ cve.published }}</p>
+        <p><strong>Last Modified    :</strong> {{ cve.last_modified }}</p>
+        <p><strong>Vulnerability Status    :</strong> {{ cve.vuln_status }}</p>
+        <p><strong>Description    :</strong> {{ cve.description }}</p>
+        <p><strong>Vector String    :</strong> {{ cve.cvss_vector }}</p>
+        <p><strong>Scores    :</strong></p>
+        <p><strong>Exploitability Score    :    </strong><span class="score-{{ exploitability_score_color }}">{{ cve.exploitability_score }}</span></p>
+        <p><strong>Score    :</strong> <span class="score" style="color    : {{ score_color }}">{{ cve.base_score }}</span></p>
+        
+        <p><strong>Severity    :</strong> <span class="severity severity-{{ severity_color }}">{{ cve.base_severity }}</span></p>
+        <p><strong>Impact Score    :</strong> <span>{{ cve.impact_score }}</span></p>
+
+
+        <h2>CPE Details</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Criteria</th>
+                    <th>Match Criteria ID</th>
+                    <th>Vulnerable</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cpe_record in cpe_records %}
+                <tr>
+                    <td>{{ cpe_record.criteria }}</td>
+                    <td>{{ cpe_record.match_criteria_id }}</td>
+                    <td>{{ cpe_record.vulnerable }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
